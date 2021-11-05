@@ -37,51 +37,64 @@ const (
 var globalStatusRE = regexp.MustCompile(`^(com|handler|connection_errors|innodb_buffer_pool_pages|innodb_rows|performance_schema)_(.*)$`)
 
 // Metric descriptors.
+
 var (
-	globalCommandsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "commands_total"),
-		"Total number of executed MySQL commands.",
-		[]string{"command"}, nil,
-	)
-	globalHandlerDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "handlers_total"),
-		"Total number of executed MySQL handlers.",
-		[]string{"handler"}, nil,
-	)
-	globalConnectionErrorsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "connection_errors_total"),
-		"Total number of MySQL connection errors.",
-		[]string{"error"}, nil,
-	)
-	globalBufferPoolPagesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_pages"),
-		"Innodb buffer pool pages by state.",
-		[]string{"state"}, nil,
-	)
-	globalBufferPoolDirtyPagesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_dirty_pages"),
-		"Innodb buffer pool dirty pages.",
-		[]string{}, nil,
-	)
-	globalBufferPoolPageChangesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_page_changes_total"),
-		"Innodb buffer pool page state changes.",
-		[]string{"operation"}, nil,
-	)
-	globalInnoDBRowOpsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "innodb_row_ops_total"),
-		"Total number of MySQL InnoDB row operations.",
-		[]string{"operation"}, nil,
-	)
-	globalPerformanceSchemaLostDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, globalStatus, "performance_schema_lost_total"),
-		"Total number of MySQL instrumentations that could not be loaded or created due to memory constraints.",
-		[]string{"instrumentation"}, nil,
-	)
+	globalCommandsDesc              *prometheus.Desc
+	globalHandlerDesc               *prometheus.Desc
+	globalConnectionErrorsDesc      *prometheus.Desc
+	globalBufferPoolPagesDesc       *prometheus.Desc
+	globalBufferPoolDirtyPagesDesc  *prometheus.Desc
+	globalBufferPoolPageChangesDesc *prometheus.Desc
+	globalInnoDBRowOpsDesc          *prometheus.Desc
+	globalPerformanceSchemaLostDesc *prometheus.Desc
 )
 
 // ScrapeGlobalStatus collects from `SHOW GLOBAL STATUS`.
 type ScrapeGlobalStatus struct{}
+
+func (ScrapeGlobalStatus) resetDesc(constLabels map[string]string) {
+
+	globalCommandsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "commands_total"),
+		"Total number of executed MySQL commands.",
+		[]string{"command"}, constLabels,
+	)
+	globalHandlerDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "handlers_total"),
+		"Total number of executed MySQL handlers.",
+		[]string{"handler"}, constLabels,
+	)
+	globalConnectionErrorsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "connection_errors_total"),
+		"Total number of MySQL connection errors.",
+		[]string{"error"}, constLabels,
+	)
+	globalBufferPoolPagesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_pages"),
+		"Innodb buffer pool pages by state.",
+		[]string{"state"}, constLabels,
+	)
+	globalBufferPoolDirtyPagesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_dirty_pages"),
+		"Innodb buffer pool dirty pages.",
+		[]string{}, constLabels,
+	)
+	globalBufferPoolPageChangesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "buffer_pool_page_changes_total"),
+		"Innodb buffer pool page state changes.",
+		[]string{"operation"}, constLabels,
+	)
+	globalInnoDBRowOpsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "innodb_row_ops_total"),
+		"Total number of MySQL InnoDB row operations.",
+		[]string{"operation"}, constLabels,
+	)
+	globalPerformanceSchemaLostDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, globalStatus, "performance_schema_lost_total"),
+		"Total number of MySQL instrumentations that could not be loaded or created due to memory constraints.",
+		[]string{"instrumentation"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeGlobalStatus) Name() string {
@@ -99,7 +112,7 @@ func (ScrapeGlobalStatus) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	globalStatusRows, err := db.QueryContext(ctx, globalStatusQuery)
 	if err != nil {
 		return err
@@ -115,6 +128,8 @@ func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prom
 		"wsrep_evs_repl_latency":   "",
 	}
 
+	(ScrapeGlobalStatus{}).resetDesc(constLabels)
+
 	for globalStatusRows.Next() {
 		if err := globalStatusRows.Scan(&key, &val); err != nil {
 			return err
@@ -124,7 +139,7 @@ func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prom
 			match := globalStatusRE.FindStringSubmatch(key)
 			if match == nil {
 				ch <- prometheus.MustNewConstMetric(
-					newDesc(globalStatus, key, "Generic metric from SHOW GLOBAL STATUS."),
+					newDescx(globalStatus, key, "Generic metric from SHOW GLOBAL STATUS.", constLabels),
 					prometheus.UntypedValue,
 					floatVal,
 				)
@@ -178,7 +193,7 @@ func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prom
 	if textItems["wsrep_local_state_uuid"] != "" {
 		ch <- prometheus.MustNewConstMetric(
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, "galera", "status_info"), "PXC/Galera status information.",
-				[]string{"wsrep_local_state_uuid", "wsrep_cluster_state_uuid", "wsrep_provider_version"}, nil),
+				[]string{"wsrep_local_state_uuid", "wsrep_cluster_state_uuid", "wsrep_provider_version"}, constLabels),
 			prometheus.GaugeValue, 1, textItems["wsrep_local_state_uuid"], textItems["wsrep_cluster_state_uuid"], textItems["wsrep_provider_version"],
 		)
 	}
@@ -215,7 +230,7 @@ func (ScrapeGlobalStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prom
 			if evsParsingSuccess {
 				for _, v := range evsMap {
 					key := prometheus.BuildFQName(namespace, "galera_evs_repl_latency", v.name)
-					desc := prometheus.NewDesc(key, v.help, []string{}, nil)
+					desc := prometheus.NewDesc(key, v.help, []string{}, constLabels)
 					ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v.value)
 				}
 			}

@@ -33,20 +33,27 @@ const perfIndexIOWaitsQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaIndexWaitsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "index_io_waits_total"),
-		"The total number of index I/O wait events for each index and operation.",
-		[]string{"schema", "name", "index", "operation"}, nil,
-	)
-	performanceSchemaIndexWaitsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "index_io_waits_seconds_total"),
-		"The total time of index I/O wait events for each index and operation.",
-		[]string{"schema", "name", "index", "operation"}, nil,
-	)
+	performanceSchemaIndexWaitsDesc     *prometheus.Desc
+	performanceSchemaIndexWaitsTimeDesc *prometheus.Desc
 )
 
 // ScrapePerfIndexIOWaits collects for `performance_schema.table_io_waits_summary_by_index_usage`.
 type ScrapePerfIndexIOWaits struct{}
+
+func (ScrapePerfIndexIOWaits) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	performanceSchemaIndexWaitsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "index_io_waits_total"),
+		"The total number of index I/O wait events for each index and operation.",
+		[]string{"schema", "name", "index", "operation"}, constLabels,
+	)
+	performanceSchemaIndexWaitsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "index_io_waits_seconds_total"),
+		"The total time of index I/O wait events for each index and operation.",
+		[]string{"schema", "name", "index", "operation"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfIndexIOWaits) Name() string {
@@ -64,7 +71,7 @@ func (ScrapePerfIndexIOWaits) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfIndexIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfIndexIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	perfSchemaIndexWaitsRows, err := db.QueryContext(ctx, perfIndexIOWaitsQuery)
 	if err != nil {
 		return err
@@ -76,7 +83,7 @@ func (ScrapePerfIndexIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- 
 		countFetch, countInsert, countUpdate, countDelete uint64
 		timeFetch, timeInsert, timeUpdate, timeDelete     uint64
 	)
-
+	(ScrapePerfIndexIOWaits{}).resetDesc(constLabels)
 	for perfSchemaIndexWaitsRows.Next() {
 		if err := perfSchemaIndexWaitsRows.Scan(
 			&objectSchema, &objectName, &indexName,

@@ -26,7 +26,8 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 )
 
-const dsn = "root@/mysql"
+// const dsn = "root@/mysql"
+const dsn = "weideguo:weideguo@(127.0.0.1:1039)/mysql"
 
 func TestExporter(t *testing.T) {
 	if testing.Short() {
@@ -36,7 +37,7 @@ func TestExporter(t *testing.T) {
 	exporter := New(
 		context.Background(),
 		dsn,
-		NewMetrics(),
+		NewMetrics(nil),
 		[]Scraper{
 			ScrapeGlobalStatus{},
 		},

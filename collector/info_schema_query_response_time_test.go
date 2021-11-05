@@ -52,7 +52,7 @@ func TestScrapeQueryResponseTime(t *testing.T) {
 
 	ch := make(chan prometheus.Metric)
 	go func() {
-		if err = (ScrapeQueryResponseTime{}).Scrape(context.Background(), db, ch, log.NewNopLogger()); err != nil {
+		if err = (ScrapeQueryResponseTime{}).Scrape(context.Background(), db, ch, log.NewNopLogger(), nil); err != nil {
 			t.Errorf("error calling function on test: %s", err)
 		}
 		close(ch)
@@ -74,6 +74,7 @@ func TestScrapeQueryResponseTime(t *testing.T) {
 		100000: 4528,
 		1e+06:  4528,
 	}
+	(ScrapeQueryResponseTime{}).resetDesc(nil)
 	expectHistogram := prometheus.MustNewConstHistogram(infoSchemaQueryResponseTimeCountDescs[0],
 		4528, 1.5773549999999998, expectCounts)
 	expectPb := &dto.Metric{}
@@ -85,7 +86,6 @@ func TestScrapeQueryResponseTime(t *testing.T) {
 	convey.Convey("Histogram comparison", t, func() {
 		convey.So(expectPb.Histogram, convey.ShouldResemble, gotPb.Histogram)
 	})
-
 	// Ensure all SQL queries were executed
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled exceptions: %s", err)

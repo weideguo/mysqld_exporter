@@ -69,7 +69,7 @@ func (ScrapeSlaveStatus) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeSlaveStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeSlaveStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var (
 		slaveStatusRows *sql.Rows
 		err             error
@@ -124,7 +124,7 @@ func (ScrapeSlaveStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prome
 						prometheus.BuildFQName(namespace, slaveStatus, strings.ToLower(col)),
 						"Generic metric from SHOW SLAVE STATUS.",
 						[]string{"master_host", "master_uuid", "channel_name", "connection_name"},
-						nil,
+						constLabels,
 					),
 					prometheus.UntypedValue,
 					value,

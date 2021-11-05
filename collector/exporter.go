@@ -64,11 +64,7 @@ var (
 
 // Metric descriptors.
 var (
-	scrapeDurationDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, exporter, "collector_duration_seconds"),
-		"Collector time duration.",
-		[]string{"collector"}, nil,
-	)
+	scrapeDurationDesc *prometheus.Desc
 )
 
 // Verify if Exporter implements prometheus.Collector
@@ -131,6 +127,7 @@ func (e *Exporter) scrape(ctx context.Context, ch chan<- prometheus.Metric) {
 	var err error
 
 	scrapeTime := time.Now()
+
 	db, err := sql.Open("mysql", e.dsn)
 	if err != nil {
 		level.Error(e.logger).Log("msg", "Error opening connection to database", "err", err)
@@ -155,11 +152,24 @@ func (e *Exporter) scrape(ctx context.Context, ch chan<- prometheus.Metric) {
 	e.metrics.MySQLUp.Set(1)
 	e.metrics.Error.Set(0)
 
+	var hostPortRE = regexp.MustCompile(`^(.*\()(.*)(\).*)$`)
+	match := hostPortRE.FindStringSubmatch(e.dsn)
+	if match == nil {
+		panic("dsn must in format user:password(host:port)/")
+	}
+	constLabels := map[string]string{"mysqlhost": match[2]}
+
+	scrapeDurationDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, exporter, "collector_duration_seconds"),
+		"Collector time duration.",
+		[]string{"collector"}, constLabels,
+	)
 	ch <- prometheus.MustNewConstMetric(scrapeDurationDesc, prometheus.GaugeValue, time.Since(scrapeTime).Seconds(), "connection")
 
 	version := getMySQLVersion(db, e.logger)
 	var wg sync.WaitGroup
 	defer wg.Wait()
+
 	for _, scraper := range e.scrapers {
 		if version < scraper.Version() {
 			continue
@@ -170,7 +180,8 @@ func (e *Exporter) scrape(ctx context.Context, ch chan<- prometheus.Metric) {
 			defer wg.Done()
 			label := "collect." + scraper.Name()
 			scrapeTime := time.Now()
-			if err := scraper.Scrape(ctx, db, ch, log.With(e.logger, "scraper", scraper.Name())); err != nil {
+			// if err := scraper.Scrape(ctx, db, ch, log.With(e.logger, "scraper", scraper.Name())); err != nil {
+			if err := scraper.Scrape(ctx, db, ch, log.With(e.logger, "scraper", scraper.Name()), constLabels); err != nil {
 				level.Error(e.logger).Log("msg", "Error from scraper", "scraper", scraper.Name(), "err", err)
 				e.metrics.ScrapeErrors.WithLabelValues(label).Inc()
 				e.metrics.Error.Set(1)
@@ -205,31 +216,35 @@ type Metrics struct {
 }
 
 // NewMetrics creates new Metrics instance.
-func NewMetrics() Metrics {
+func NewMetrics(constLabals map[string]string) Metrics {
 	subsystem := exporter
 	return Metrics{
 		TotalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "scrapes_total",
-			Help:      "Total number of times MySQL was scraped for metrics.",
+			Namespace:   namespace,
+			Subsystem:   subsystem,
+			Name:        "scrapes_total",
+			Help:        "Total number of times MySQL was scraped for metrics.",
+			ConstLabels: constLabals,
 		}),
 		ScrapeErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "scrape_errors_total",
-			Help:      "Total number of times an error occurred scraping a MySQL.",
+			Namespace:   namespace,
+			Subsystem:   subsystem,
+			Name:        "scrape_errors_total",
+			Help:        "Total number of times an error occurred scraping a MySQL.",
+			ConstLabels: constLabals,
 		}, []string{"collector"}),
 		Error: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "last_scrape_error",
-			Help:      "Whether the last scrape of metrics from MySQL resulted in an error (1 for error, 0 for success).",
+			Namespace:   namespace,
+			Subsystem:   subsystem,
+			Name:        "last_scrape_error",
+			Help:        "Whether the last scrape of metrics from MySQL resulted in an error (1 for error, 0 for success).",
+			ConstLabels: constLabals,
 		}),
 		MySQLUp: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "up",
-			Help:      "Whether the MySQL server is up.",
+			Namespace:   namespace,
+			Name:        "up",
+			Help:        "Whether the MySQL server is up.",
+			ConstLabels: constLabals,
 		}),
 	}
 }

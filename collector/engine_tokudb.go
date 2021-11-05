@@ -50,7 +50,7 @@ func (ScrapeEngineTokudbStatus) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeEngineTokudbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeEngineTokudbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	tokudbRows, err := db.QueryContext(ctx, engineTokudbStatusQuery)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (ScrapeEngineTokudbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<
 		key = strings.ToLower(key)
 		if floatVal, ok := parseStatus(val); ok {
 			ch <- prometheus.MustNewConstMetric(
-				newDesc(tokudb, sanitizeTokudbMetric(key), "Generic metric from SHOW ENGINE TOKUDB STATUS."),
+				newDescx(tokudb, sanitizeTokudbMetric(key), "Generic metric from SHOW ENGINE TOKUDB STATUS.", constLabels),
 				prometheus.UntypedValue,
 				floatVal,
 			)

@@ -53,30 +53,38 @@ const perfTableLockWaitsQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaSQLTableLockWaitsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "sql_lock_waits_total"),
-		"The total number of SQL lock wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
-	performanceSchemaExternalTableLockWaitsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "external_lock_waits_total"),
-		"The total number of external lock wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
-	performanceSchemaSQLTableLockWaitsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "sql_lock_waits_seconds_total"),
-		"The total time of SQL lock wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
-	performanceSchemaExternalTableLockWaitsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "external_lock_waits_seconds_total"),
-		"The total time of external lock wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
+	performanceSchemaSQLTableLockWaitsDesc          *prometheus.Desc
+	performanceSchemaExternalTableLockWaitsDesc     *prometheus.Desc
+	performanceSchemaSQLTableLockWaitsTimeDesc      *prometheus.Desc
+	performanceSchemaExternalTableLockWaitsTimeDesc *prometheus.Desc
 )
 
 // ScrapePerfTableLockWaits collects from `performance_schema.table_lock_waits_summary_by_table`.
 type ScrapePerfTableLockWaits struct{}
+
+func (ScrapePerfTableLockWaits) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	performanceSchemaSQLTableLockWaitsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "sql_lock_waits_total"),
+		"The total number of SQL lock wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+	performanceSchemaExternalTableLockWaitsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "external_lock_waits_total"),
+		"The total number of external lock wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+	performanceSchemaSQLTableLockWaitsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "sql_lock_waits_seconds_total"),
+		"The total time of SQL lock wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+	performanceSchemaExternalTableLockWaitsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "external_lock_waits_seconds_total"),
+		"The total time of external lock wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfTableLockWaits) Name() string {
@@ -94,7 +102,7 @@ func (ScrapePerfTableLockWaits) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfTableLockWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfTableLockWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	perfSchemaTableLockWaitsRows, err := db.QueryContext(ctx, perfTableLockWaitsQuery)
 	if err != nil {
 		return err
@@ -125,7 +133,7 @@ func (ScrapePerfTableLockWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<
 		timeWriteNormal            uint64
 		timeWriteExternal          uint64
 	)
-
+	(ScrapePerfTableLockWaits{}).resetDesc(constLabels)
 	for perfSchemaTableLockWaitsRows.Next() {
 		if err := perfSchemaTableLockWaitsRows.Scan(
 			&objectSchema,

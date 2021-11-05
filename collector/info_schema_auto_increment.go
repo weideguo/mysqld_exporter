@@ -39,20 +39,25 @@ const infoSchemaAutoIncrementQuery = `
 
 // Metric descriptors.
 var (
-	globalInfoSchemaAutoIncrementDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "auto_increment_column"),
-		"The current value of an auto_increment column from information_schema.",
-		[]string{"schema", "table", "column"}, nil,
-	)
-	globalInfoSchemaAutoIncrementMaxDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "auto_increment_column_max"),
-		"The max value of an auto_increment column from information_schema.",
-		[]string{"schema", "table", "column"}, nil,
-	)
+	globalInfoSchemaAutoIncrementDesc    *prometheus.Desc
+	globalInfoSchemaAutoIncrementMaxDesc *prometheus.Desc
 )
 
 // ScrapeAutoIncrementColumns collects auto_increment column information.
 type ScrapeAutoIncrementColumns struct{}
+
+func (ScrapeAutoIncrementColumns) resetDesc(constLabels map[string]string) {
+	globalInfoSchemaAutoIncrementDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "auto_increment_column"),
+		"The current value of an auto_increment column from information_schema.",
+		[]string{"schema", "table", "column"}, constLabels,
+	)
+	globalInfoSchemaAutoIncrementMaxDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "auto_increment_column_max"),
+		"The max value of an auto_increment column from information_schema.",
+		[]string{"schema", "table", "column"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeAutoIncrementColumns) Name() string {
@@ -70,7 +75,7 @@ func (ScrapeAutoIncrementColumns) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeAutoIncrementColumns) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeAutoIncrementColumns) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	autoIncrementRows, err := db.QueryContext(ctx, infoSchemaAutoIncrementQuery)
 	if err != nil {
 		return err
@@ -81,7 +86,7 @@ func (ScrapeAutoIncrementColumns) Scrape(ctx context.Context, db *sql.DB, ch cha
 		schema, table, column string
 		value, max            float64
 	)
-
+	(ScrapeAutoIncrementColumns{}).resetDesc(constLabels)
 	for autoIncrementRows.Next() {
 		if err := autoIncrementRows.Scan(
 			&schema, &table, &column, &value, &max,

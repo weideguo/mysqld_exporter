@@ -43,25 +43,33 @@ var (
 
 // Metric descriptors.
 var (
-	performanceSchemaMemoryBytesAllocDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_alloc_bytes_total"),
-		"The total number of bytes allocated by events.",
-		[]string{"event_name"}, nil,
-	)
-	performanceSchemaMemoryBytesFreeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_free_bytes_total"),
-		"The total number of bytes freed by events.",
-		[]string{"event_name"}, nil,
-	)
-	perforanceSchemaMemoryUsedBytesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_used_bytes"),
-		"The number of bytes currently allocated by events.",
-		[]string{"event_name"}, nil,
-	)
+	performanceSchemaMemoryBytesAllocDesc *prometheus.Desc
+	performanceSchemaMemoryBytesFreeDesc  *prometheus.Desc
+	perforanceSchemaMemoryUsedBytesDesc   *prometheus.Desc
 )
 
 // ScrapePerfMemoryEvents collects from `performance_schema.memory_summary_global_by_event_name`.
 type ScrapePerfMemoryEvents struct{}
+
+func (ScrapePerfMemoryEvents) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	performanceSchemaMemoryBytesAllocDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_alloc_bytes_total"),
+		"The total number of bytes allocated by events.",
+		[]string{"event_name"}, constLabels,
+	)
+	performanceSchemaMemoryBytesFreeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_free_bytes_total"),
+		"The total number of bytes freed by events.",
+		[]string{"event_name"}, constLabels,
+	)
+	perforanceSchemaMemoryUsedBytesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "memory_events_used_bytes"),
+		"The number of bytes currently allocated by events.",
+		[]string{"event_name"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfMemoryEvents) Name() string {
@@ -79,7 +87,7 @@ func (ScrapePerfMemoryEvents) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfMemoryEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfMemoryEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	perfSchemaMemoryEventsRows, err := db.QueryContext(ctx, perfMemoryEventsQuery)
 	if err != nil {
 		return err
@@ -92,7 +100,7 @@ func (ScrapePerfMemoryEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- 
 		bytesFree    uint64
 		currentBytes int64
 	)
-
+	(ScrapePerfMemoryEvents{}).resetDesc(constLabels)
 	for perfSchemaMemoryEventsRows.Next() {
 		if err := perfSchemaMemoryEventsRows.Scan(
 			&eventName, &bytesAlloc, &bytesFree, &currentBytes,

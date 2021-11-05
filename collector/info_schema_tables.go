@@ -61,25 +61,32 @@ var (
 
 // Metric descriptors.
 var (
-	infoSchemaTablesVersionDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_version"),
-		"The version number of the table's .frm file",
-		[]string{"schema", "table", "type", "engine", "row_format", "create_options"}, nil,
-	)
-	infoSchemaTablesRowsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_rows"),
-		"The estimated number of rows in the table from information_schema.tables",
-		[]string{"schema", "table"}, nil,
-	)
-	infoSchemaTablesSizeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_size"),
-		"The size of the table components from information_schema.tables",
-		[]string{"schema", "table", "component"}, nil,
-	)
+	infoSchemaTablesVersionDesc *prometheus.Desc
+	infoSchemaTablesRowsDesc    *prometheus.Desc
+	infoSchemaTablesSizeDesc    *prometheus.Desc
 )
 
 // ScrapeTableSchema collects from `information_schema.tables`.
 type ScrapeTableSchema struct{}
+
+func (ScrapeTableSchema) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	infoSchemaTablesVersionDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_version"),
+		"The version number of the table's .frm file",
+		[]string{"schema", "table", "type", "engine", "row_format", "create_options"}, constLabels,
+	)
+	infoSchemaTablesRowsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_rows"),
+		"The estimated number of rows in the table from information_schema.tables",
+		[]string{"schema", "table"}, constLabels,
+	)
+	infoSchemaTablesSizeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_size"),
+		"The size of the table components from information_schema.tables",
+		[]string{"schema", "table", "component"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeTableSchema) Name() string {
@@ -97,7 +104,7 @@ func (ScrapeTableSchema) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeTableSchema) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeTableSchema) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var dbList []string
 	if *tableSchemaDatabases == "*" {
 		dbListRows, err := db.QueryContext(ctx, dbListQuery)
@@ -119,7 +126,7 @@ func (ScrapeTableSchema) Scrape(ctx context.Context, db *sql.DB, ch chan<- prome
 	} else {
 		dbList = strings.Split(*tableSchemaDatabases, ",")
 	}
-
+	(ScrapeTableSchema{}).resetDesc(constLabels)
 	for _, database := range dbList {
 		tableSchemaRows, err := db.QueryContext(ctx, fmt.Sprintf(tableSchemaQuery, database))
 		if err != nil {

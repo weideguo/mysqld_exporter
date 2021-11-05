@@ -29,37 +29,45 @@ const innodbCmpQuery = `
 		  FROM information_schema.innodb_cmp
 		`
 
-// Metric descriptors.
 var (
-	infoSchemaInnodbCmpCompressOps = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_ops_total"),
-		"Number of times a B-tree page of the size PAGE_SIZE has been compressed.",
-		[]string{"page_size"}, nil,
-	)
-	infoSchemaInnodbCmpCompressOpsOk = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_ops_ok_total"),
-		"Number of times a B-tree page of the size PAGE_SIZE has been successfully compressed.",
-		[]string{"page_size"}, nil,
-	)
-	infoSchemaInnodbCmpCompressTime = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_time_seconds_total"),
-		"Total time in seconds spent in attempts to compress B-tree pages.",
-		[]string{"page_size"}, nil,
-	)
-	infoSchemaInnodbCmpUncompressOps = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_uncompress_ops_total"),
-		"Number of times a B-tree page of the size PAGE_SIZE has been uncompressed.",
-		[]string{"page_size"}, nil,
-	)
-	infoSchemaInnodbCmpUncompressTime = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_uncompress_time_seconds_total"),
-		"Total time in seconds spent in uncompressing B-tree pages.",
-		[]string{"page_size"}, nil,
-	)
+	infoSchemaInnodbCmpCompressOps    *prometheus.Desc
+	infoSchemaInnodbCmpCompressOpsOk  *prometheus.Desc
+	infoSchemaInnodbCmpCompressTime   *prometheus.Desc
+	infoSchemaInnodbCmpUncompressOps  *prometheus.Desc
+	infoSchemaInnodbCmpUncompressTime *prometheus.Desc
 )
 
 // ScrapeInnodbCmp collects from `information_schema.innodb_cmp`.
 type ScrapeInnodbCmp struct{}
+
+func (ScrapeInnodbCmp) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	infoSchemaInnodbCmpCompressOps = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_ops_total"),
+		"Number of times a B-tree page of the size PAGE_SIZE has been compressed.",
+		[]string{"page_size"}, constLabels,
+	)
+	infoSchemaInnodbCmpCompressOpsOk = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_ops_ok_total"),
+		"Number of times a B-tree page of the size PAGE_SIZE has been successfully compressed.",
+		[]string{"page_size"}, constLabels,
+	)
+	infoSchemaInnodbCmpCompressTime = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_compress_time_seconds_total"),
+		"Total time in seconds spent in attempts to compress B-tree pages.",
+		[]string{"page_size"}, constLabels,
+	)
+	infoSchemaInnodbCmpUncompressOps = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_uncompress_ops_total"),
+		"Number of times a B-tree page of the size PAGE_SIZE has been uncompressed.",
+		[]string{"page_size"}, constLabels,
+	)
+	infoSchemaInnodbCmpUncompressTime = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmp_uncompress_time_seconds_total"),
+		"Total time in seconds spent in uncompressing B-tree pages.",
+		[]string{"page_size"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeInnodbCmp) Name() string {
@@ -77,7 +85,7 @@ func (ScrapeInnodbCmp) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeInnodbCmp) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeInnodbCmp) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	informationSchemaInnodbCmpRows, err := db.QueryContext(ctx, innodbCmpQuery)
 	if err != nil {
 		return err
@@ -88,7 +96,7 @@ func (ScrapeInnodbCmp) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometh
 		page_size                                                                     string
 		compress_ops, compress_ops_ok, compress_time, uncompress_ops, uncompress_time float64
 	)
-
+	(ScrapeInnodbCmp{}).resetDesc(constLabels)
 	for informationSchemaInnodbCmpRows.Next() {
 		if err := informationSchemaInnodbCmpRows.Scan(
 			&page_size, &compress_ops, &compress_ops_ok, &compress_time, &uncompress_ops, &uncompress_time,

@@ -47,24 +47,32 @@ const innodbTablespacesQuery = `
 	    ALLOCATED_SIZE
 	  FROM information_schema.` + "`%s`"
 
-// Metric descriptors.
 var (
+	// Metric descriptors
+	infoSchemaInnodbTablesspaceInfoDesc          *prometheus.Desc
+	infoSchemaInnodbTablesspaceFileSizeDesc      *prometheus.Desc
+	infoSchemaInnodbTablesspaceAllocatedSizeDesc *prometheus.Desc
+)
+
+func (ScrapeInfoSchemaInnodbTablespaces) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
 	infoSchemaInnodbTablesspaceInfoDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_tablespace_space_info"),
 		"The Tablespace information and Space ID.",
-		[]string{"tablespace_name", "file_format", "row_format", "space_type"}, nil,
+		[]string{"tablespace_name", "file_format", "row_format", "space_type"}, constLabels,
 	)
 	infoSchemaInnodbTablesspaceFileSizeDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_tablespace_file_size_bytes"),
 		"The apparent size of the file, which represents the maximum size of the file, uncompressed.",
-		[]string{"tablespace_name"}, nil,
+		[]string{"tablespace_name"}, constLabels,
 	)
 	infoSchemaInnodbTablesspaceAllocatedSizeDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_tablespace_allocated_size_bytes"),
 		"The actual size of the file, which is the amount of space allocated on disk.",
-		[]string{"tablespace_name"}, nil,
+		[]string{"tablespace_name"}, constLabels,
 	)
-)
+}
 
 // ScrapeInfoSchemaInnodbTablespaces collects from `information_schema.innodb_sys_tablespaces`.
 type ScrapeInfoSchemaInnodbTablespaces struct{}
@@ -85,7 +93,7 @@ func (ScrapeInfoSchemaInnodbTablespaces) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeInfoSchemaInnodbTablespaces) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeInfoSchemaInnodbTablespaces) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var tablespacesTablename string
 	var query string
 	err := db.QueryRowContext(ctx, innodbTablespacesTablenameQuery).Scan(&tablespacesTablename)
@@ -115,7 +123,7 @@ func (ScrapeInfoSchemaInnodbTablespaces) Scrape(ctx context.Context, db *sql.DB,
 		fileSize      uint64
 		allocatedSize uint64
 	)
-
+	(ScrapeInfoSchemaInnodbTablespaces{}).resetDesc(constLabels)
 	for tablespacesRows.Next() {
 		err = tablespacesRows.Scan(
 			&tableSpace,

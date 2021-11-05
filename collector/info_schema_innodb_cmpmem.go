@@ -29,29 +29,37 @@ const innodbCmpMemQuery = `
                   FROM information_schema.innodb_cmpmem
                 `
 
-// Metric descriptors.
 var (
+	// Metric descriptors.
+	infoSchemaInnodbCmpMemPagesRead      *prometheus.Desc
+	infoSchemaInnodbCmpMemPagesFree      *prometheus.Desc
+	infoSchemaInnodbCmpMemRelocationOps  *prometheus.Desc
+	infoSchemaInnodbCmpMemRelocationTime *prometheus.Desc
+)
+
+func (ScrapeInnodbCmpMem) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
 	infoSchemaInnodbCmpMemPagesRead = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmpmem_pages_used_total"),
 		"Number of blocks of the size PAGE_SIZE that are currently in use.",
-		[]string{"page_size", "buffer_pool"}, nil,
+		[]string{"page_size", "buffer_pool"}, constLabels,
 	)
 	infoSchemaInnodbCmpMemPagesFree = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmpmem_pages_free_total"),
 		"Number of blocks of the size PAGE_SIZE that are currently available for allocation.",
-		[]string{"page_size", "buffer_pool"}, nil,
+		[]string{"page_size", "buffer_pool"}, constLabels,
 	)
 	infoSchemaInnodbCmpMemRelocationOps = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmpmem_relocation_ops_total"),
 		"Number of times a block of the size PAGE_SIZE has been relocated.",
-		[]string{"page_size", "buffer_pool"}, nil,
+		[]string{"page_size", "buffer_pool"}, constLabels,
 	)
 	infoSchemaInnodbCmpMemRelocationTime = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_cmpmem_relocation_time_seconds_total"),
 		"Total time in seconds spent in relocating blocks.",
-		[]string{"page_size", "buffer_pool"}, nil,
+		[]string{"page_size", "buffer_pool"}, constLabels,
 	)
-)
+}
 
 // ScrapeInnodbCmp collects from `information_schema.innodb_cmp`.
 type ScrapeInnodbCmpMem struct{}
@@ -72,7 +80,7 @@ func (ScrapeInnodbCmpMem) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeInnodbCmpMem) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeInnodbCmpMem) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	informationSchemaInnodbCmpMemRows, err := db.QueryContext(ctx, innodbCmpMemQuery)
 	if err != nil {
 		return err
@@ -83,7 +91,7 @@ func (ScrapeInnodbCmpMem) Scrape(ctx context.Context, db *sql.DB, ch chan<- prom
 		page_size, buffer_pool                                  string
 		pages_used, pages_free, relocation_ops, relocation_time float64
 	)
-
+	(ScrapeInnodbCmpMem{}).resetDesc(constLabels)
 	for informationSchemaInnodbCmpMemRows.Next() {
 		if err := informationSchemaInnodbCmpMemRows.Scan(
 			&page_size, &buffer_pool, &pages_used, &pages_free, &relocation_ops, &relocation_time,

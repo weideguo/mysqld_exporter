@@ -34,27 +34,33 @@ const (
 	binlogQuery = `SHOW BINARY LOGS`
 )
 
-// Metric descriptors.
 var (
-	binlogSizeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, binlog, "size_bytes"),
-		"Combined size of all registered binlog files.",
-		[]string{}, nil,
-	)
-	binlogFilesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, binlog, "files"),
-		"Number of registered binlog files.",
-		[]string{}, nil,
-	)
-	binlogFileNumberDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, binlog, "file_number"),
-		"The last binlog file number.",
-		[]string{}, nil,
-	)
+	binlogSizeDesc       *prometheus.Desc
+	binlogFilesDesc      *prometheus.Desc
+	binlogFileNumberDesc *prometheus.Desc
 )
 
 // ScrapeBinlogSize colects from `SHOW BINARY LOGS`.
 type ScrapeBinlogSize struct{}
+
+func (ScrapeBinlogSize) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	binlogSizeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, binlog, "size_bytes"),
+		"Combined size of all registered binlog files.",
+		[]string{}, constLabels,
+	)
+	binlogFilesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, binlog, "files"),
+		"Number of registered binlog files.",
+		[]string{}, constLabels,
+	)
+	binlogFileNumberDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, binlog, "file_number"),
+		"The last binlog file number.",
+		[]string{}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeBinlogSize) Name() string {
@@ -72,7 +78,7 @@ func (ScrapeBinlogSize) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeBinlogSize) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeBinlogSize) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var logBin uint8
 	err := db.QueryRowContext(ctx, logbinQuery).Scan(&logBin)
 	if err != nil {
@@ -104,7 +110,7 @@ func (ScrapeBinlogSize) Scrape(ctx context.Context, db *sql.DB, ch chan<- promet
 		return err
 	}
 	columnCount := len(columns)
-
+	(ScrapeBinlogSize{}).resetDesc(constLabels)
 	for masterLogRows.Next() {
 		switch columnCount {
 		case 2:

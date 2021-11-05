@@ -31,6 +31,18 @@ const userStatQuery = `SELECT * FROM information_schema.user_statistics`
 var (
 	// Map known user-statistics values to types. Unknown types will be mapped as
 	// untyped.
+	informationSchemaUserStatisticsTypes map[string]struct {
+		vtype prometheus.ValueType
+		desc  *prometheus.Desc
+	}
+)
+
+// ScrapeUserStat collects from `information_schema.user_statistics`.
+type ScrapeUserStat struct{}
+
+func (ScrapeUserStat) resetDesc(constLabels map[string]string) {
+	// Map known user-statistics values to types. Unknown types will be mapped as
+	// untyped.
 	informationSchemaUserStatisticsTypes = map[string]struct {
 		vtype prometheus.ValueType
 		desc  *prometheus.Desc
@@ -38,108 +50,105 @@ var (
 		"TOTAL_CONNECTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_total_connections"),
 				"The number of connections created for this user.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"CONCURRENT_CONNECTIONS": {prometheus.GaugeValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_concurrent_connections"),
 				"The number of concurrent connections for this user.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"CONNECTED_TIME": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_connected_time_seconds_total"),
 				"The cumulative number of seconds elapsed while there were connections from this user.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"BUSY_TIME": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_busy_seconds_total"),
 				"The cumulative number of seconds there was activity on connections from this user.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"CPU_TIME": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_cpu_time_seconds_total"),
 				"The cumulative CPU time elapsed, in seconds, while servicing this user's connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"BYTES_RECEIVED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_bytes_received_total"),
 				"The number of bytes received from this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"BYTES_SENT": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_bytes_sent_total"),
 				"The number of bytes sent to this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"BINLOG_BYTES_WRITTEN": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_binlog_bytes_written_total"),
 				"The number of bytes written to the binary log from this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_READ": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_read_total"),
 				"The number of rows read by this user's connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_SENT": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_sent_total"),
 				"The number of rows sent by this user's connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_DELETED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_deleted_total"),
 				"The number of rows deleted by this user's connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_INSERTED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_inserted_total"),
 				"The number of rows inserted by this user's connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_FETCHED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_fetched_total"),
 				"The number of rows fetched by this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROWS_UPDATED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rows_updated_total"),
 				"The number of rows updated by this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"TABLE_ROWS_READ": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_table_rows_read_total"),
 				"The number of rows read from tables by this user’s connections. (It may be different from ROWS_FETCHED.)",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"SELECT_COMMANDS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_select_commands_total"),
 				"The number of SELECT commands executed from this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"UPDATE_COMMANDS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_update_commands_total"),
 				"The number of UPDATE commands executed from this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"OTHER_COMMANDS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_other_commands_total"),
 				"The number of other commands executed from this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"COMMIT_TRANSACTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_commit_transactions_total"),
 				"The number of COMMIT commands issued by this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ROLLBACK_TRANSACTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_rollback_transactions_total"),
 				"The number of ROLLBACK commands issued by this user’s connections.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"DENIED_CONNECTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_denied_connections_total"),
 				"The number of connections denied to this user.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"LOST_CONNECTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_lost_connections_total"),
 				"The number of this user’s connections that were terminated uncleanly.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"ACCESS_DENIED": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_access_denied_total"),
 				"The number of times this user’s connections issued commands that were denied.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"EMPTY_QUERIES": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_empty_queries_total"),
 				"The number of times this user’s connections sent empty queries to the server.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 		"TOTAL_SSL_CONNECTIONS": {prometheus.CounterValue,
 			prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, "user_statistics_total_ssl_connections_total"),
 				"The number of times this user’s connections connected using SSL to the server.",
-				[]string{"user"}, nil)},
+				[]string{"user"}, constLabels)},
 	}
-)
-
-// ScrapeUserStat collects from `information_schema.user_statistics`.
-type ScrapeUserStat struct{}
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeUserStat) Name() string {
@@ -157,7 +166,7 @@ func (ScrapeUserStat) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeUserStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeUserStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var varName, varVal string
 	err := db.QueryRowContext(ctx, userstatCheckQuery).Scan(&varName, &varVal)
 	if err != nil {
@@ -192,7 +201,7 @@ func (ScrapeUserStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- promethe
 	for i := range userStatData {
 		userStatScanArgs[i+1] = &userStatData[i]
 	}
-
+	(ScrapeUserStat{}).resetDesc(constLabels)
 	for informationSchemaUserStatisticsRows.Next() {
 		err = informationSchemaUserStatisticsRows.Scan(userStatScanArgs...)
 		if err != nil {
@@ -207,7 +216,7 @@ func (ScrapeUserStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- promethe
 				ch <- prometheus.MustNewConstMetric(metricType.desc, metricType.vtype, float64(userStatData[idx]), user)
 			} else {
 				// Unknown metric. Report as untyped.
-				desc := prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, fmt.Sprintf("user_statistics_%s", strings.ToLower(columnName))), fmt.Sprintf("Unsupported metric from column %s", columnName), []string{"user"}, nil)
+				desc := prometheus.NewDesc(prometheus.BuildFQName(namespace, informationSchema, fmt.Sprintf("user_statistics_%s", strings.ToLower(columnName))), fmt.Sprintf("Unsupported metric from column %s", columnName), []string{"user"}, constLabels)
 				ch <- prometheus.MustNewConstMetric(desc, prometheus.UntypedValue, float64(userStatData[idx]), user)
 			}
 		}

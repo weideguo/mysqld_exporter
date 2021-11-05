@@ -47,7 +47,7 @@ func TestScrapeInfoSchemaInnodbTablespaces(t *testing.T) {
 
 	ch := make(chan prometheus.Metric)
 	go func() {
-		if err = (ScrapeInfoSchemaInnodbTablespaces{}).Scrape(context.Background(), db, ch, log.NewNopLogger()); err != nil {
+		if err = (ScrapeInfoSchemaInnodbTablespaces{}).Scrape(context.Background(), db, ch, log.NewNopLogger(), nil); err != nil {
 			t.Errorf("error calling function on test: %s", err)
 		}
 		close(ch)

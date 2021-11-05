@@ -51,115 +51,140 @@ const perfEventsStatementsSumQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaEventsStatementsSumTotalDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_total"),
-		"The total count of events statements.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumCreatedTmpDiskTablesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_created_tmp_disk_tables"),
-		"The number of on-disk temporary tables created.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumCreatedTmpTablesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_created_tmp_tables"),
-		"The number of temporary tables created.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumErrorsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_errors"),
-		"Number of errors.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumLockTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_lock_time"),
-		"Time in picoseconds spent waiting for locks.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumNoGoodIndexUsedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_no_good_index_used"),
-		"Number of times no good index was found.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumNoIndexUsedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_no_index_used"),
-		"Number of times no index was found.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumRowsAffectedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_affected"),
-		"Number of rows affected by statements.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumRowsExaminedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_examined"),
-		"Number of rows read during statements' execution.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumRowsSentDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_sent"),
-		"Number of rows returned.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSelectFullJoinDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_full_join"),
-		"Number of joins performed by statements which did not use an index.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSelectFullRangeJoinDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_full_range_join"),
-		"Number of joins performed by statements which used a range search of the first table.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSelectRangeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_range"),
-		"Number of joins performed by statements which used a range of the first table.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSelectRangeCheckDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_range_check"),
-		"Number of joins without keys performed by statements that check for key usage after each row.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSelectScanDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_scan"),
-		"Number of joins performed by statements which used a full scan of the first table.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSortMergePassesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_merge_passes"),
-		"Number of merge passes by the sort algorithm performed by statements.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSortRangeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_range"),
-		"Number of sorts performed by statements which used a range.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSortRowsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_rows"),
-		"Number of rows sorted.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumSortScanDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_scan"),
-		"Number of sorts performed by statements which used a full table scan.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumTimerWaitDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_timer_wait"),
-		"Total wait time of the summarized events that are timed.",
-		nil, nil,
-	)
-	performanceSchemaEventsStatementsSumWarningsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_warnings"),
-		"Number of warnings.",
-		nil, nil,
-	)
+	performanceSchemaEventsStatementsSumTotalDesc                *prometheus.Desc
+	performanceSchemaEventsStatementsSumCreatedTmpDiskTablesDesc *prometheus.Desc
+	performanceSchemaEventsStatementsSumCreatedTmpTablesDesc     *prometheus.Desc
+	performanceSchemaEventsStatementsSumErrorsDesc               *prometheus.Desc
+	performanceSchemaEventsStatementsSumLockTimeDesc             *prometheus.Desc
+	performanceSchemaEventsStatementsSumNoGoodIndexUsedDesc      *prometheus.Desc
+	performanceSchemaEventsStatementsSumNoIndexUsedDesc          *prometheus.Desc
+	performanceSchemaEventsStatementsSumRowsAffectedDesc         *prometheus.Desc
+	performanceSchemaEventsStatementsSumRowsExaminedDesc         *prometheus.Desc
+	performanceSchemaEventsStatementsSumRowsSentDesc             *prometheus.Desc
+	performanceSchemaEventsStatementsSumSelectFullJoinDesc       *prometheus.Desc
+	performanceSchemaEventsStatementsSumSelectFullRangeJoinDesc  *prometheus.Desc
+	performanceSchemaEventsStatementsSumSelectRangeDesc          *prometheus.Desc
+	performanceSchemaEventsStatementsSumSelectRangeCheckDesc     *prometheus.Desc
+	performanceSchemaEventsStatementsSumSelectScanDesc           *prometheus.Desc
+	performanceSchemaEventsStatementsSumSortMergePassesDesc      *prometheus.Desc
+	performanceSchemaEventsStatementsSumSortRangeDesc            *prometheus.Desc
+	performanceSchemaEventsStatementsSumSortRowsDesc             *prometheus.Desc
+	performanceSchemaEventsStatementsSumSortScanDesc             *prometheus.Desc
+	performanceSchemaEventsStatementsSumTimerWaitDesc            *prometheus.Desc
+	performanceSchemaEventsStatementsSumWarningsDesc             *prometheus.Desc
 )
 
 // ScrapePerfEventsStatementsSum collects from `performance_schema.events_statements_summary_by_digest`.
 type ScrapePerfEventsStatementsSum struct{}
+
+func (ScrapePerfEventsStatementsSum) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	performanceSchemaEventsStatementsSumTotalDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_total"),
+		"The total count of events statements.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumCreatedTmpDiskTablesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_created_tmp_disk_tables"),
+		"The number of on-disk temporary tables created.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumCreatedTmpTablesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_created_tmp_tables"),
+		"The number of temporary tables created.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumErrorsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_errors"),
+		"Number of errors.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumLockTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_lock_time"),
+		"Time in picoseconds spent waiting for locks.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumNoGoodIndexUsedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_no_good_index_used"),
+		"Number of times no good index was found.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumNoIndexUsedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_no_index_used"),
+		"Number of times no index was found.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumRowsAffectedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_affected"),
+		"Number of rows affected by statements.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumRowsExaminedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_examined"),
+		"Number of rows read during statements' execution.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumRowsSentDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_rows_sent"),
+		"Number of rows returned.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSelectFullJoinDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_full_join"),
+		"Number of joins performed by statements which did not use an index.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSelectFullRangeJoinDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_full_range_join"),
+		"Number of joins performed by statements which used a range search of the first table.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSelectRangeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_range"),
+		"Number of joins performed by statements which used a range of the first table.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSelectRangeCheckDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_range_check"),
+		"Number of joins without keys performed by statements that check for key usage after each row.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSelectScanDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_select_scan"),
+		"Number of joins performed by statements which used a full scan of the first table.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSortMergePassesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_merge_passes"),
+		"Number of merge passes by the sort algorithm performed by statements.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSortRangeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_range"),
+		"Number of sorts performed by statements which used a range.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSortRowsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_rows"),
+		"Number of rows sorted.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumSortScanDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_sort_scan"),
+		"Number of sorts performed by statements which used a full table scan.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumTimerWaitDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_timer_wait"),
+		"Total wait time of the summarized events that are timed.",
+		nil, constLabels,
+	)
+	performanceSchemaEventsStatementsSumWarningsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_statements_sum_warnings"),
+		"Number of warnings.",
+		nil, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfEventsStatementsSum) Name() string {
@@ -177,7 +202,7 @@ func (ScrapePerfEventsStatementsSum) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfEventsStatementsSum) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfEventsStatementsSum) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	// Timers here are returned in picoseconds.
 	perfEventsStatementsSumRows, err := db.QueryContext(ctx, perfEventsStatementsSumQuery)
 	if err != nil {
@@ -193,7 +218,7 @@ func (ScrapePerfEventsStatementsSum) Scrape(ctx context.Context, db *sql.DB, ch 
 		selectScan, sortMergePasses, sortRange, sortRows      uint64
 		sortScan, timerWait, warnings                         uint64
 	)
-
+	(ScrapePerfEventsStatementsSum{}).resetDesc(constLabels)
 	for perfEventsStatementsSumRows.Next() {
 		if err := perfEventsStatementsSumRows.Scan(
 			&total, &createdTmpDiskTables, &createdTmpTables, &errors,

@@ -41,8 +41,9 @@ func TestScrapeBinlogSize(t *testing.T) {
 	mock.ExpectQuery(sanitizeQuery(binlogQuery)).WillReturnRows(rows)
 
 	ch := make(chan prometheus.Metric)
+
 	go func() {
-		if err = (ScrapeBinlogSize{}).Scrape(context.Background(), db, ch, log.NewNopLogger()); err != nil {
+		if err = (ScrapeBinlogSize{}).Scrape(context.Background(), db, ch, log.NewNopLogger(), nil); err != nil {
 			t.Errorf("error calling function on test: %s", err)
 		}
 		close(ch)

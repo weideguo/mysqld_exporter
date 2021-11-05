@@ -36,24 +36,29 @@ var (
 		"SELECT TIME, COUNT, TOTAL FROM INFORMATION_SCHEMA.QUERY_RESPONSE_TIME_READ",
 		"SELECT TIME, COUNT, TOTAL FROM INFORMATION_SCHEMA.QUERY_RESPONSE_TIME_WRITE",
 	}
+)
 
-	infoSchemaQueryResponseTimeCountDescs = [3]*prometheus.Desc{
-		prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, informationSchema, "query_response_time_seconds"),
-			"The number of all queries by duration they took to execute.",
-			[]string{}, nil,
-		),
-		prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, informationSchema, "read_query_response_time_seconds"),
-			"The number of read queries by duration they took to execute.",
-			[]string{}, nil,
-		),
-		prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, informationSchema, "write_query_response_time_seconds"),
-			"The number of write queries by duration they took to execute.",
-			[]string{}, nil,
-		),
-	}
+// var (
+// 	infoSchemaQueryResponseTimeCountDescs = [3]*prometheus.Desc{
+// 		prometheus.NewDesc(
+// 			prometheus.BuildFQName(namespace, informationSchema, "query_response_time_seconds"),
+// 			"The number of all queries by duration they took to execute.",
+// 			[]string{}, nil,
+// 		),
+// 		prometheus.NewDesc(
+// 			prometheus.BuildFQName(namespace, informationSchema, "read_query_response_time_seconds"),
+// 			"The number of read queries by duration they took to execute.",
+// 			[]string{}, nil,
+// 		),
+// 		prometheus.NewDesc(
+// 			prometheus.BuildFQName(namespace, informationSchema, "write_query_response_time_seconds"),
+// 			"The number of write queries by duration they took to execute.",
+// 			[]string{}, nil,
+// 		),
+// 	}
+// )
+var (
+	infoSchemaQueryResponseTimeCountDescs []*prometheus.Desc
 )
 
 func processQueryResponseTimeTable(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, query string, i int) error {
@@ -103,6 +108,26 @@ func processQueryResponseTimeTable(ctx context.Context, db *sql.DB, ch chan<- pr
 // ScrapeQueryResponseTime collects from `information_schema.query_response_time`.
 type ScrapeQueryResponseTime struct{}
 
+func (ScrapeQueryResponseTime) resetDesc(constLabels map[string]string) {
+	infoSchemaQueryResponseTimeCountDescs = []*prometheus.Desc{
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, informationSchema, "query_response_time_seconds"),
+			"The number of all queries by duration they took to execute.",
+			[]string{}, constLabels,
+		),
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, informationSchema, "read_query_response_time_seconds"),
+			"The number of read queries by duration they took to execute.",
+			[]string{}, constLabels,
+		),
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, informationSchema, "write_query_response_time_seconds"),
+			"The number of write queries by duration they took to execute.",
+			[]string{}, constLabels,
+		),
+	}
+}
+
 // Name of the Scraper. Should be unique.
 func (ScrapeQueryResponseTime) Name() string {
 	return "info_schema.query_response_time"
@@ -119,7 +144,7 @@ func (ScrapeQueryResponseTime) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeQueryResponseTime) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeQueryResponseTime) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var queryStats uint8
 	err := db.QueryRowContext(ctx, queryResponseCheckQuery).Scan(&queryStats)
 	if err != nil {
@@ -130,7 +155,7 @@ func (ScrapeQueryResponseTime) Scrape(ctx context.Context, db *sql.DB, ch chan<-
 		level.Debug(logger).Log("msg", "MySQL variable is OFF.", "var", "query_response_time_stats")
 		return nil
 	}
-
+	(ScrapeQueryResponseTime{}).resetDesc(constLabels)
 	for i, query := range queryResponseTimeQueries {
 		err := processQueryResponseTimeTable(ctx, db, ch, query, i)
 		// The first query should not fail if query_response_time_stats is ON,

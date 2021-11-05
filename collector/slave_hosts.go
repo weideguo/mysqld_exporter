@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 const (
@@ -36,15 +36,21 @@ const (
 
 // Metric descriptors.
 var (
-	SlaveHostsInfo = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, heartbeat, "mysql_slave_hosts_info"),
-		"Information about running slaves",
-		[]string{"server_id", "slave_host", "port", "master_id", "slave_uuid"}, nil,
-	)
+	SlaveHostsInfo *prometheus.Desc
 )
 
 // ScrapeSlaveHosts scrapes metrics about the replicating slaves.
 type ScrapeSlaveHosts struct{}
+
+func (ScrapeSlaveHosts) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	SlaveHostsInfo = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, heartbeat, "mysql_slave_hosts_info"),
+		"Information about running slaves",
+		[]string{"server_id", "slave_host", "port", "master_id", "slave_uuid"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeSlaveHosts) Name() string {
@@ -62,7 +68,7 @@ func (ScrapeSlaveHosts) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeSlaveHosts) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeSlaveHosts) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	slaveHostsRows, err := db.QueryContext(ctx, slaveHostsQuery)
 	if err != nil {
 		return err
@@ -84,7 +90,7 @@ func (ScrapeSlaveHosts) Scrape(ctx context.Context, db *sql.DB, ch chan<- promet
 	if err != nil {
 		return err
 	}
-
+	(ScrapeSlaveHosts{}).resetDesc(constLabels)
 	for slaveHostsRows.Next() {
 		// Newer versions of mysql have the following
 		// 		Server_id, Host, Port, Master_id, Slave_UUID

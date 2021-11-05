@@ -36,37 +36,46 @@ const replicaHostQuery = `
 		FROM information_schema.replica_host_status
 	`
 
-// Metric descriptors.
 var (
-	infoSchemaReplicaHostCpuDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "replica_host_cpu_percent"),
-		"The CPU usage as a percentage.",
-		[]string{"server_id", "role"}, nil,
-	)
-	infoSchemaReplicaHostSlaveLatencyDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "replica_host_slave_latency_seconds"),
-		"The master-slave latency in seconds.",
-		[]string{"server_id", "role"}, nil,
-	)
-	infoSchemaReplicaHostLagDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "replica_host_lag_seconds"),
-		"The replica lag in seconds.",
-		[]string{"server_id", "role"}, nil,
-	)
-	infoSchemaReplicaHostLogStreamSpeedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "replica_host_log_stream_speed"),
-		"The log stream speed in kilobytes per second.",
-		[]string{"server_id", "role"}, nil,
-	)
-	infoSchemaReplicaHostReplayLatencyDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "replica_host_replay_latency_seconds"),
-		"The current replay latency in seconds.",
-		[]string{"server_id", "role"}, nil,
-	)
+	// Metric descriptors.
+	infoSchemaReplicaHostCpuDesc            *prometheus.Desc
+	infoSchemaReplicaHostSlaveLatencyDesc   *prometheus.Desc
+	infoSchemaReplicaHostLagDesc            *prometheus.Desc
+	infoSchemaReplicaHostLogStreamSpeedDesc *prometheus.Desc
+	infoSchemaReplicaHostReplayLatencyDesc  *prometheus.Desc
 )
 
 // ScrapeReplicaHost collects from `information_schema.replica_host_status`.
 type ScrapeReplicaHost struct{}
+
+func (ScrapeReplicaHost) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	infoSchemaReplicaHostCpuDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "replica_host_cpu_percent"),
+		"The CPU usage as a percentage.",
+		[]string{"server_id", "role"}, constLabels,
+	)
+	infoSchemaReplicaHostSlaveLatencyDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "replica_host_slave_latency_seconds"),
+		"The master-slave latency in seconds.",
+		[]string{"server_id", "role"}, constLabels,
+	)
+	infoSchemaReplicaHostLagDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "replica_host_lag_seconds"),
+		"The replica lag in seconds.",
+		[]string{"server_id", "role"}, constLabels,
+	)
+	infoSchemaReplicaHostLogStreamSpeedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "replica_host_log_stream_speed"),
+		"The log stream speed in kilobytes per second.",
+		[]string{"server_id", "role"}, constLabels,
+	)
+	infoSchemaReplicaHostReplayLatencyDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "replica_host_replay_latency_seconds"),
+		"The current replay latency in seconds.",
+		[]string{"server_id", "role"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeReplicaHost) Name() string {
@@ -84,7 +93,7 @@ func (ScrapeReplicaHost) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeReplicaHost) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeReplicaHost) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	replicaHostRows, err := db.QueryContext(ctx, replicaHostQuery)
 	if err != nil {
 		if mysqlErr, ok := err.(*MySQL.MySQLError); ok { // Now the error number is accessible directly
@@ -107,6 +116,7 @@ func (ScrapeReplicaHost) Scrape(ctx context.Context, db *sql.DB, ch chan<- prome
 		logStreamSpeed float64
 		replayLatency  uint64
 	)
+	(ScrapeReplicaHost{}).resetDesc(constLabels)
 	for replicaHostRows.Next() {
 		if err := replicaHostRows.Scan(
 			&serverId,

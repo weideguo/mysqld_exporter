@@ -36,25 +36,31 @@ const tableStatQuery = `
 
 // Metric descriptors.
 var (
-	infoSchemaTableStatsRowsReadDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_read_total"),
-		"The number of rows read from the table.",
-		[]string{"schema", "table"}, nil,
-	)
-	infoSchemaTableStatsRowsChangedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_changed_total"),
-		"The number of rows changed in the table.",
-		[]string{"schema", "table"}, nil,
-	)
-	infoSchemaTableStatsRowsChangedXIndexesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_changed_x_indexes_total"),
-		"The number of rows changed in the table, multiplied by the number of indexes changed.",
-		[]string{"schema", "table"}, nil,
-	)
+	infoSchemaTableStatsRowsReadDesc            *prometheus.Desc
+	infoSchemaTableStatsRowsChangedDesc         *prometheus.Desc
+	infoSchemaTableStatsRowsChangedXIndexesDesc *prometheus.Desc
 )
 
 // ScrapeTableStat collects from `information_schema.table_statistics`.
 type ScrapeTableStat struct{}
+
+func (ScrapeTableStat) resetDesc(constLabels map[string]string) {
+	infoSchemaTableStatsRowsReadDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_read_total"),
+		"The number of rows read from the table.",
+		[]string{"schema", "table"}, constLabels,
+	)
+	infoSchemaTableStatsRowsChangedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_changed_total"),
+		"The number of rows changed in the table.",
+		[]string{"schema", "table"}, constLabels,
+	)
+	infoSchemaTableStatsRowsChangedXIndexesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "table_statistics_rows_changed_x_indexes_total"),
+		"The number of rows changed in the table, multiplied by the number of indexes changed.",
+		[]string{"schema", "table"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeTableStat) Name() string {
@@ -72,7 +78,7 @@ func (ScrapeTableStat) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeTableStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeTableStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var varName, varVal string
 	err := db.QueryRowContext(ctx, userstatCheckQuery).Scan(&varName, &varVal)
 	if err != nil {
@@ -97,7 +103,7 @@ func (ScrapeTableStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometh
 		rowsChanged         uint64
 		rowsChangedXIndexes uint64
 	)
-
+	(ScrapeTableStat{}).resetDesc(constLabels)
 	for informationSchemaTableStatisticsRows.Next() {
 		err = informationSchemaTableStatisticsRows.Scan(
 			&tableSchema,

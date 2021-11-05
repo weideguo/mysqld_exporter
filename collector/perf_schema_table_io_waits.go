@@ -34,20 +34,27 @@ const perfTableIOWaitsQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaTableWaitsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "table_io_waits_total"),
-		"The total number of table I/O wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
-	performanceSchemaTableWaitsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "table_io_waits_seconds_total"),
-		"The total time of table I/O wait events for each table and operation.",
-		[]string{"schema", "name", "operation"}, nil,
-	)
+	performanceSchemaTableWaitsDesc     *prometheus.Desc
+	performanceSchemaTableWaitsTimeDesc *prometheus.Desc
 )
 
 // ScrapePerfTableIOWaits collects from `performance_schema.table_io_waits_summary_by_table`.
 type ScrapePerfTableIOWaits struct{}
+
+func (ScrapePerfTableIOWaits) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	performanceSchemaTableWaitsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "table_io_waits_total"),
+		"The total number of table I/O wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+	performanceSchemaTableWaitsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "table_io_waits_seconds_total"),
+		"The total time of table I/O wait events for each table and operation.",
+		[]string{"schema", "name", "operation"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfTableIOWaits) Name() string {
@@ -65,7 +72,7 @@ func (ScrapePerfTableIOWaits) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfTableIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfTableIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	perfSchemaTableWaitsRows, err := db.QueryContext(ctx, perfTableIOWaitsQuery)
 	if err != nil {
 		return err
@@ -77,7 +84,7 @@ func (ScrapePerfTableIOWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- 
 		countFetch, countInsert, countUpdate, countDelete uint64
 		timeFetch, timeInsert, timeUpdate, timeDelete     uint64
 	)
-
+	(ScrapePerfTableIOWaits{}).resetDesc(constLabels)
 	for perfSchemaTableWaitsRows.Next() {
 		if err := perfSchemaTableWaitsRows.Scan(
 			&objectSchema, &objectName, &countFetch, &countInsert, &countUpdate, &countDelete,

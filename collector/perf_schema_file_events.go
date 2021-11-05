@@ -34,25 +34,33 @@ const perfFileEventsQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaFileEventsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "file_events_total"),
-		"The total file events by event name/mode.",
-		[]string{"event_name", "mode"}, nil,
-	)
-	performanceSchemaFileEventsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "file_events_seconds_total"),
-		"The total seconds of file events by event name/mode.",
-		[]string{"event_name", "mode"}, nil,
-	)
-	performanceSchemaFileEventsBytesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "file_events_bytes_total"),
-		"The total bytes of file events by event name/mode.",
-		[]string{"event_name", "mode"}, nil,
-	)
+	performanceSchemaFileEventsDesc      *prometheus.Desc
+	performanceSchemaFileEventsTimeDesc  *prometheus.Desc
+	performanceSchemaFileEventsBytesDesc *prometheus.Desc
 )
 
 // ScrapePerfFileEvents collects from `performance_schema.file_summary_by_event_name`.
 type ScrapePerfFileEvents struct{}
+
+func (ScrapePerfFileEvents) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	performanceSchemaFileEventsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "file_events_total"),
+		"The total file events by event name/mode.",
+		[]string{"event_name", "mode"}, constLabels,
+	)
+	performanceSchemaFileEventsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "file_events_seconds_total"),
+		"The total seconds of file events by event name/mode.",
+		[]string{"event_name", "mode"}, constLabels,
+	)
+	performanceSchemaFileEventsBytesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "file_events_bytes_total"),
+		"The total bytes of file events by event name/mode.",
+		[]string{"event_name", "mode"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfFileEvents) Name() string {
@@ -70,7 +78,7 @@ func (ScrapePerfFileEvents) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfFileEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfFileEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	// Timers here are returned in picoseconds.
 	perfSchemaFileEventsRows, err := db.QueryContext(ctx, perfFileEventsQuery)
 	if err != nil {
@@ -84,6 +92,7 @@ func (ScrapePerfFileEvents) Scrape(ctx context.Context, db *sql.DB, ch chan<- pr
 		countWrite, timeWrite, bytesWrite uint64
 		countMisc, timeMisc               uint64
 	)
+	(ScrapePerfFileEvents{}).resetDesc(constLabels)
 	for perfSchemaFileEventsRows.Next() {
 		if err := perfSchemaFileEventsRows.Scan(
 			&eventName,

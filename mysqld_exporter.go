@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,8 @@ var (
 		"tls.insecure-skip-verify",
 		"Ignore certificate and server verification when using a tls connection.",
 	).Bool()
-	dsn string
+	dsn  string
+	dsns []string
 )
 
 // scrapers lists all possible collection methods and if they should be enabled by default.
@@ -181,7 +183,7 @@ func init() {
 	prometheus.MustRegister(version.NewCollector("mysqld_exporter"))
 }
 
-func newHandler(metrics collector.Metrics, scrapers []collector.Scraper, logger log.Logger) http.HandlerFunc {
+func newHandler(scrapers []collector.Scraper, logger log.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		filteredScrapers := scrapers
 		params := r.URL.Query()["collect[]"]
@@ -226,7 +228,17 @@ func newHandler(metrics collector.Metrics, scrapers []collector.Scraper, logger 
 		}
 
 		registry := prometheus.NewRegistry()
-		registry.MustRegister(collector.New(ctx, dsn, metrics, filteredScrapers, logger))
+
+		var hostPortRE = regexp.MustCompile(`^(.*\()(.*)(\).*)$`)
+		for _, _dsn := range dsns {
+			match := hostPortRE.FindStringSubmatch(_dsn)
+			if match == nil {
+				panic("dsn must in format user:password(host:port)/...")
+			}
+			labals := map[string]string{"mysqlhost": match[2]}
+			metrics := collector.NewMetrics(labals)
+			registry.MustRegister(collector.New(ctx, _dsn, metrics, filteredScrapers, logger))
+		}
 
 		gatherers := prometheus.Gatherers{
 			prometheus.DefaultGatherer,
@@ -274,7 +286,7 @@ func main() {
 </html>
 `)
 
-	level.Info(logger).Log("msg", "Starting msqyld_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Starting mysqld_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
 
 	dsn = os.Getenv("DATA_SOURCE_NAME")
@@ -286,6 +298,13 @@ func main() {
 		}
 	}
 
+	// 同一个实例不同地址不行?
+	// dsn = "user1:password1@(127.0.0.1:3306)/,user2:password2@(127.0.0.1:3307)/"
+	dsns = strings.Split(dsn, ",")
+
+	for k, v := range dsns {
+		dsns[k] = strings.Trim(v, " ")
+	}
 	// Register only scrapers enabled by flag.
 	enabledScrapers := []collector.Scraper{}
 	for scraper, enabled := range scraperFlags {
@@ -294,7 +313,8 @@ func main() {
 			enabledScrapers = append(enabledScrapers, scraper)
 		}
 	}
-	handlerFunc := newHandler(collector.NewMetrics(), enabledScrapers, logger)
+
+	handlerFunc := newHandler(enabledScrapers, logger)
 	http.Handle(*metricPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(landingPage)

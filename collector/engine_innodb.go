@@ -52,7 +52,7 @@ func (ScrapeEngineInnodbStatus) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeEngineInnodbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeEngineInnodbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	rows, err := db.QueryContext(ctx, engineInnodbStatusQuery)
 	if err != nil {
 		return err
@@ -76,20 +76,20 @@ func (ScrapeEngineInnodbStatus) Scrape(ctx context.Context, db *sql.DB, ch chan<
 		if data := rQueries.FindStringSubmatch(line); data != nil {
 			value, _ := strconv.ParseFloat(data[1], 64)
 			ch <- prometheus.MustNewConstMetric(
-				newDesc(innodb, "queries_inside_innodb", "Queries inside InnoDB."),
+				newDescx(innodb, "queries_inside_innodb", "Queries inside InnoDB.", constLabels),
 				prometheus.GaugeValue,
 				value,
 			)
 			value, _ = strconv.ParseFloat(data[2], 64)
 			ch <- prometheus.MustNewConstMetric(
-				newDesc(innodb, "queries_in_queue", "Queries in queue."),
+				newDescx(innodb, "queries_in_queue", "Queries in queue.", constLabels),
 				prometheus.GaugeValue,
 				value,
 			)
 		} else if data := rViews.FindStringSubmatch(line); data != nil {
 			value, _ := strconv.ParseFloat(data[1], 64)
 			ch <- prometheus.MustNewConstMetric(
-				newDesc(innodb, "read_views_open_inside_innodb", "Read views open inside InnoDB."),
+				newDescx(innodb, "read_views_open_inside_innodb", "Read views open inside InnoDB.", constLabels),
 				prometheus.GaugeValue,
 				value,
 			)

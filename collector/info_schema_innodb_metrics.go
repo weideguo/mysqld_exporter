@@ -42,8 +42,15 @@ const infoSchemaInnodbMetricsQuery = `
 		  FROM information_schema.innodb_metrics
 		  WHERE ` + "`%s` = '%s'"
 
-// Metrics descriptors.
 var (
+	infoSchemaBufferPageReadTotalDesc    *prometheus.Desc
+	infoSchemaBufferPageWrittenTotalDesc *prometheus.Desc
+	infoSchemaBufferPoolPagesDesc        *prometheus.Desc
+	infoSchemaBufferPoolPagesDirtyDesc   *prometheus.Desc
+)
+
+func (ScrapeInnodbMetrics) resetDesc(constLabels map[string]string) {
+	// Metrics descriptors.
 	infoSchemaBufferPageReadTotalDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "innodb_metrics_buffer_page_read_total"),
 		"Total number of buffer pages read total.",
@@ -64,7 +71,7 @@ var (
 		"Total number of dirty pages in the buffer pool.",
 		nil, nil,
 	)
-)
+}
 
 // Regexp for matching metric aggregations.
 var (
@@ -91,7 +98,7 @@ func (ScrapeInnodbMetrics) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeInnodbMetrics) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeInnodbMetrics) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var enabledColumnName string
 	var query string
 
@@ -119,7 +126,7 @@ func (ScrapeInnodbMetrics) Scrape(ctx context.Context, db *sql.DB, ch chan<- pro
 		name, subsystem, metricType, comment string
 		value                                float64
 	)
-
+	(ScrapeInnodbMetrics{}).resetDesc(constLabels)
 	for innodbMetricsRows.Next() {
 		if err := innodbMetricsRows.Scan(
 			&name, &subsystem, &metricType, &comment, &value,

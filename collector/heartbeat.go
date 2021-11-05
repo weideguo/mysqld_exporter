@@ -53,16 +53,8 @@ var (
 
 // Metric descriptors.
 var (
-	HeartbeatStoredDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, heartbeat, "stored_timestamp_seconds"),
-		"Timestamp stored in the heartbeat table.",
-		[]string{"server_id"}, nil,
-	)
-	HeartbeatNowDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, heartbeat, "now_timestamp_seconds"),
-		"Timestamp of the current server.",
-		[]string{"server_id"}, nil,
-	)
+	HeartbeatStoredDesc *prometheus.Desc
+	HeartbeatNowDesc    *prometheus.Desc
 )
 
 // ScrapeHeartbeat scrapes from the heartbeat table.
@@ -73,6 +65,20 @@ var (
 //  server_id             int unsigned NOT NULL PRIMARY KEY,
 // );
 type ScrapeHeartbeat struct{}
+
+func (ScrapeHeartbeat) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	HeartbeatStoredDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, heartbeat, "stored_timestamp_seconds"),
+		"Timestamp stored in the heartbeat table.",
+		[]string{"server_id"}, constLabels,
+	)
+	HeartbeatNowDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, heartbeat, "now_timestamp_seconds"),
+		"Timestamp of the current server.",
+		[]string{"server_id"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeHeartbeat) Name() string {
@@ -98,7 +104,7 @@ func nowExpr() string {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeHeartbeat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeHeartbeat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	query := fmt.Sprintf(heartbeatQuery, nowExpr(), *collectHeartbeatDatabase, *collectHeartbeatTable)
 	heartbeatRows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -110,7 +116,7 @@ func (ScrapeHeartbeat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometh
 		now, ts  sql.RawBytes
 		serverId int
 	)
-
+	(ScrapeHeartbeat{}).resetDesc(constLabels)
 	for heartbeatRows.Next() {
 		if err := heartbeatRows.Scan(&ts, &now, &serverId); err != nil {
 			return err

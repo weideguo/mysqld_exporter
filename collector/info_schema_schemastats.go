@@ -36,25 +36,32 @@ const schemaStatQuery = `
 
 // Metric descriptors.
 var (
-	infoSchemaStatsRowsReadDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_read_total"),
-		"The number of rows read from the schema.",
-		[]string{"schema"}, nil,
-	)
-	infoSchemaStatsRowsChangedDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_changed_total"),
-		"The number of rows changed in the schema.",
-		[]string{"schema"}, nil,
-	)
-	infoSchemaStatsRowsChangedXIndexesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_changed_x_indexes_total"),
-		"The number of rows changed in the schema, multiplied by the number of indexes changed.",
-		[]string{"schema"}, nil,
-	)
+	infoSchemaStatsRowsReadDesc            *prometheus.Desc
+	infoSchemaStatsRowsChangedDesc         *prometheus.Desc
+	infoSchemaStatsRowsChangedXIndexesDesc *prometheus.Desc
 )
 
 // ScrapeSchemaStat collects from `information_schema.table_statistics` grouped by schema.
 type ScrapeSchemaStat struct{}
+
+func (ScrapeSchemaStat) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+	infoSchemaStatsRowsReadDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_read_total"),
+		"The number of rows read from the schema.",
+		[]string{"schema"}, constLabels,
+	)
+	infoSchemaStatsRowsChangedDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_changed_total"),
+		"The number of rows changed in the schema.",
+		[]string{"schema"}, constLabels,
+	)
+	infoSchemaStatsRowsChangedXIndexesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, informationSchema, "schema_statistics_rows_changed_x_indexes_total"),
+		"The number of rows changed in the schema, multiplied by the number of indexes changed.",
+		[]string{"schema"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeSchemaStat) Name() string {
@@ -72,7 +79,7 @@ func (ScrapeSchemaStat) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeSchemaStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeSchemaStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var varName, varVal string
 
 	err := db.QueryRowContext(ctx, userstatCheckQuery).Scan(&varName, &varVal)
@@ -97,7 +104,7 @@ func (ScrapeSchemaStat) Scrape(ctx context.Context, db *sql.DB, ch chan<- promet
 		rowsChanged         uint64
 		rowsChangedXIndexes uint64
 	)
-
+	(ScrapeSchemaStat{}).resetDesc(constLabels)
 	for informationSchemaTableStatisticsRows.Next() {
 		err = informationSchemaTableStatisticsRows.Scan(
 			&tableSchema,

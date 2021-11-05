@@ -30,20 +30,27 @@ const perfEventsWaitsQuery = `
 
 // Metric descriptors.
 var (
-	performanceSchemaEventsWaitsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_waits_total"),
-		"The total events waits by event name.",
-		[]string{"event_name"}, nil,
-	)
-	performanceSchemaEventsWaitsTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, performanceSchema, "events_waits_seconds_total"),
-		"The total seconds of events waits by event name.",
-		[]string{"event_name"}, nil,
-	)
+	performanceSchemaEventsWaitsDesc     *prometheus.Desc
+	performanceSchemaEventsWaitsTimeDesc *prometheus.Desc
 )
 
 // ScrapePerfEventsWaits collects from `performance_schema.events_waits_summary_global_by_event_name`.
 type ScrapePerfEventsWaits struct{}
+
+func (ScrapePerfEventsWaits) resetDesc(constLabels map[string]string) {
+	// Metric descriptors.
+
+	performanceSchemaEventsWaitsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_waits_total"),
+		"The total events waits by event name.",
+		[]string{"event_name"}, constLabels,
+	)
+	performanceSchemaEventsWaitsTimeDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, performanceSchema, "events_waits_seconds_total"),
+		"The total seconds of events waits by event name.",
+		[]string{"event_name"}, constLabels,
+	)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapePerfEventsWaits) Name() string {
@@ -61,7 +68,7 @@ func (ScrapePerfEventsWaits) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapePerfEventsWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapePerfEventsWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	// Timers here are returned in picoseconds.
 	perfSchemaEventsWaitsRows, err := db.QueryContext(ctx, perfEventsWaitsQuery)
 	if err != nil {
@@ -73,7 +80,7 @@ func (ScrapePerfEventsWaits) Scrape(ctx context.Context, db *sql.DB, ch chan<- p
 		eventName   string
 		count, time uint64
 	)
-
+	(ScrapePerfEventsWaits{}).resetDesc(constLabels)
 	for perfSchemaEventsWaitsRows.Next() {
 		if err := perfSchemaEventsWaitsRows.Scan(
 			&eventName, &count, &time,

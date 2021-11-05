@@ -59,23 +59,31 @@ var (
 
 // Metric descriptors.
 var (
+	processlistCountDesc *prometheus.Desc
+	processlistTimeDesc  *prometheus.Desc
+	processesByUserDesc  *prometheus.Desc
+	processesByHostDesc  *prometheus.Desc
+)
+
+// Metric descriptors.
+func (ScrapeProcesslist) resetDesc(constLabels map[string]string) {
 	processlistCountDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "threads"),
 		"The number of threads (connections) split by current state.",
-		[]string{"state"}, nil)
+		[]string{"state"}, constLabels)
 	processlistTimeDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "threads_seconds"),
 		"The number of seconds threads (connections) have used split by current state.",
-		[]string{"state"}, nil)
+		[]string{"state"}, constLabels)
 	processesByUserDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "processes_by_user"),
 		"The number of processes by user.",
-		[]string{"mysql_user"}, nil)
+		[]string{"mysql_user"}, constLabels)
 	processesByHostDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, informationSchema, "processes_by_host"),
 		"The number of processes by host.",
-		[]string{"client_host"}, nil)
-)
+		[]string{"client_host"}, constLabels)
+}
 
 // whitelist for connection/process states in SHOW PROCESSLIST
 // tokudb uses the state column for "Queried about _______ rows"
@@ -177,7 +185,7 @@ func (ScrapeProcesslist) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeProcesslist) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeProcesslist) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	processQuery := fmt.Sprintf(
 		infoSchemaProcesslistQuery,
 		*processlistMinTime,
@@ -204,7 +212,7 @@ func (ScrapeProcesslist) Scrape(ctx context.Context, db *sql.DB, ch chan<- prome
 		stateCounts[k] = v
 		stateTime[k] = v
 	}
-
+	(ScrapeProcesslist{}).resetDesc(constLabels)
 	for processlistRows.Next() {
 		err = processlistRows.Scan(&user, &host, &command, &state, &processes, &time)
 		if err != nil {

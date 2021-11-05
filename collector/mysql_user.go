@@ -80,26 +80,33 @@ var (
 
 // Metric descriptors.
 var (
-	userMaxQuestionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysql, "max_questions"),
-		"The number of max_questions by user.",
-		labelNames, nil)
-	userMaxUpdatesDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysql, "max_updates"),
-		"The number of max_updates by user.",
-		labelNames, nil)
-	userMaxConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysql, "max_connections"),
-		"The number of max_connections by user.",
-		labelNames, nil)
-	userMaxUserConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysql, "max_user_connections"),
-		"The number of max_user_connections by user.",
-		labelNames, nil)
+	userMaxQuestionsDesc       *prometheus.Desc
+	userMaxUpdatesDesc         *prometheus.Desc
+	userMaxConnectionsDesc     *prometheus.Desc
+	userMaxUserConnectionsDesc *prometheus.Desc
 )
 
 // ScrapeUser collects from `information_schema.processlist`.
 type ScrapeUser struct{}
+
+func (ScrapeUser) resetDesc(constLabels map[string]string) {
+	userMaxQuestionsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, mysql, "max_questions"),
+		"The number of max_questions by user.",
+		labelNames, constLabels)
+	userMaxUpdatesDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, mysql, "max_updates"),
+		"The number of max_updates by user.",
+		labelNames, constLabels)
+	userMaxConnectionsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, mysql, "max_connections"),
+		"The number of max_connections by user.",
+		labelNames, constLabels)
+	userMaxUserConnectionsDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, mysql, "max_user_connections"),
+		"The number of max_user_connections by user.",
+		labelNames, constLabels)
+}
 
 // Name of the Scraper. Should be unique.
 func (ScrapeUser) Name() string {
@@ -117,7 +124,7 @@ func (ScrapeUser) Version() float64 {
 }
 
 // Scrape collects data from database connection and sends it over channel as prometheus metric.
-func (ScrapeUser) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) error {
+func (ScrapeUser) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger, constLabels map[string]string) error {
 	var (
 		userRows *sql.Rows
 		err      error
@@ -166,7 +173,7 @@ func (ScrapeUser) Scrape(ctx context.Context, db *sql.DB, ch chan<- prometheus.M
 		max_connections        uint32
 		max_user_connections   uint32
 	)
-
+	(ScrapeUser{}).resetDesc(constLabels)
 	for userRows.Next() {
 		err = userRows.Scan(
 			&user,
